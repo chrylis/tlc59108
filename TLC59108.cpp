@@ -48,10 +48,11 @@ uint8_t TLC59108::setRegister(const uint8_t reg, const uint8_t value)
 
 uint8_t TLC59108::setRegisters(const uint8_t startReg, const uint8_t values[], const uint8_t numValues)
 {
-   i2c.beginTransmission(startReg | AUTO_INCREMENT::ALL);
-   for(uint8_t i = 0; i < numValues; i++)
-     i2c.write(values[i]);
-   return i2c.endTransmission();
+	i2c.beginTransmission(addr);
+	i2c.write(startReg | AUTO_INCREMENT::ALL);
+	for(uint8_t i = 0; i < numValues; i++)
+		i2c.write(values[i]);
+	return i2c.endTransmission();
 }
 
 int TLC59108::readRegister(const uint8_t reg) const
@@ -66,6 +67,28 @@ int TLC59108::readRegister(const uint8_t reg) const
      return i2c.read();
    else
      return -1;
+}
+
+uint8_t TLC59108::readRegisters(uint8_t *dest, const uint8_t startReg, const uint8_t num) const {
+	Serial.println("in readRegisters");
+	i2c.beginTransmission(addr);
+	i2c.write(startReg | AUTO_INCREMENT::ALL);
+	if(i2c.endTransmission())
+		return 0;
+
+	uint8_t bytesRead = 0;
+	i2c.requestFrom(addr, num);
+	while(i2c.available() && (bytesRead < num)) {
+		(*dest) = (uint8_t) i2c.read();
+		dest++;
+		bytesRead++;
+	}
+
+	return bytesRead;
+}
+
+bool TLC59108::getAllBrightness(uint8_t dutyCycles[]) const {
+	return (readRegisters(dutyCycles, REGISTER::PWM0::ADDR, NUM_CHANNELS) == NUM_CHANNELS);
 }
 
 uint8_t TLC59108::init(const uint8_t hwResetPin)
@@ -106,16 +129,12 @@ uint8_t TLC59108::setAllBrightness(const uint8_t dutyCycle)
 {
    i2c.beginTransmission(addr);
    i2c.write(REGISTER::PWM0::ADDR | AUTO_INCREMENT::IND);
-   for(uint8_t i=0; i<8; i++)
+   for(uint8_t i=0; i<NUM_CHANNELS; i++)
      i2c.write(dutyCycle);
    return i2c.endTransmission();
 }
 
 uint8_t TLC59108::setAllBrightness(const uint8_t dutyCycles[]) 
 {
-   i2c.beginTransmission(addr);
-   i2c.write(REGISTER::PWM0::ADDR | AUTO_INCREMENT::IND);
-   for(uint8_t i=0; i<8; i++)
-     i2c.write(dutyCycles[i]);
-   return i2c.endTransmission();
+	return setRegisters(REGISTER::PWM0::ADDR, dutyCycles, NUM_CHANNELS);
 }
